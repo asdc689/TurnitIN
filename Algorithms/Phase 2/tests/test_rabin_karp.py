@@ -1,5 +1,5 @@
 from algorithms.rabin_karp import similarity_score
-from code_preprocess.language_tokenizer import normalize_identifiers
+from code_preprocess.code_tokenizer import normalize_identifiers
 
 code1 = ["def", "var1", "(", ")", ":", "return", "var2", "+", "var3"]
 code2 = ["def", "varA", "(", ")", ":", "return", "varB", "+", "varC"]

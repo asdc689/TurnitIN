@@ -1,5 +1,5 @@
 from code_preprocess.clean_code import clean_code
-from code_preprocess.language_tokenizer import tokenize_code, normalize_identifiers
+from code_preprocess.code_tokenizer import tokenize_code, normalize_identifiers
 
 # Java Example
 java_code = """
