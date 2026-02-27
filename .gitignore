@@ -1,0 +1,5 @@
+venv311/
+Phase4_Backend/.env
+Phase4_Backend/.env.example
+Phase4_Backend/requirements.txt
+Phase4_Backend/alembic.ini
