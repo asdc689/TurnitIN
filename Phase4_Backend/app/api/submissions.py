@@ -195,40 +195,53 @@ async def get_submission_report(
 @router.get("/history", response_model=HistoryResponse)
 async def get_submission_history(
     page:         int           = Query(default=1, ge=1),
-    page_size:    int           = Query(default=10, ge=1, le=50),
+    page_size:    int           = Query(default=8, ge=1, le=50),
     mode:         Optional[str] = Query(default=None, description="Filter by 'text' or 'code'"),
     risk:         Optional[str] = Query(default=None, description="Filter by risk: 'LOW', 'MEDIUM', 'HIGH'"),
+    sort:         str           = Query(default="desc", pattern="^(asc|desc)$"),
     db:           AsyncSession  = Depends(get_db),
     current_user: User          = Depends(get_current_verified_user),
 ):
-    """
-    Returns paginated submission history for the current user.
-    Supports filtering by mode and risk level.
-    """
-    query = select(Submission).where(Submission.user_id == current_user.id)
+    from sqlalchemy import asc
+    
+    # Build dynamic conditions
+    conditions = [Submission.user_id == current_user.id]
 
     if mode in ("text", "code"):
-        query = query.where(Submission.mode == SubmissionMode(mode))
+        conditions.append(Submission.mode == SubmissionMode(mode))
 
     if risk in ("LOW", "MEDIUM", "HIGH"):
         from app.models.report import RiskLevel
-        query = (
-            query
-            .join(Report, Report.submission_id == Submission.id)
-            .where(Report.risk_level == RiskLevel(risk))
+        conditions.append(
+            Report.risk_level == RiskLevel(risk)
         )
 
-    # Total count
-    count_result = await db.execute(select(func.count()).select_from(query.subquery()))
-    total        = count_result.scalar_one()
+    # Base query
+    base_query = select(Submission)
+    
+    if risk in ("LOW", "MEDIUM", "HIGH"):
+        base_query = base_query.join(Report, Report.submission_id == Submission.id)
 
-    # Paginated results — newest first
-    query       = query.order_by(desc(Submission.created_at))
-    query       = query.offset((page - 1) * page_size).limit(page_size)
-    result      = await db.execute(query)
+    base_query = base_query.where(*conditions)
+
+    # Total count with filters applied
+    count_result = await db.execute(
+        select(func.count()).select_from(base_query.subquery())
+    )
+    total = count_result.scalar_one()
+
+    # Sorting
+    order_clause = desc(Submission.created_at) if sort == "desc" else asc(Submission.created_at)
+
+    # Paginated fetch
+    result = await db.execute(
+        base_query
+        .order_by(order_clause)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
     submissions = result.scalars().all()
 
-    # Build response list with flattened report fields
     items = []
     for sub in submissions:
         item = SubmissionListItem(

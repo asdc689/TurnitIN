@@ -47,8 +47,8 @@ class Submission(Base):
     completed_at     = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    user             = relationship("User", back_populates="submissions")
-    report           = relationship("Report", back_populates="submission", uselist=False, lazy="selectin")
+    user    = relationship("User", back_populates="submissions")
+    report  = relationship("Report", back_populates="submission", uselist=False, lazy="selectin", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Submission id={self.id} mode={self.mode} status={self.status}>"

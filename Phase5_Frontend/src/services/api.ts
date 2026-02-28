@@ -42,8 +42,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      // Clear everything so we don't get stuck in an endless login loop
+    const originalRequest = error.config;
+    
+    // ONLY trigger the global logout if the 401 is NOT from the login route
+    if (error.response?.status === 401 && originalRequest?.url !== "/auth/login") {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
@@ -137,10 +139,18 @@ export const submissionsApi = {
   },
 
   // Fetches past submissions, defaulting to page 1 with 10 items
-  getHistory: async (page = 1, pageSize = 10): Promise<HistoryResponse> => {
-    const res = await api.get("/submissions/history", {
-      params: { page, page_size: pageSize },
-    });
+  getHistory: async (
+  page = 1,
+  pageSize = 8,
+  mode?: string,
+  risk?: string,
+  sort: "desc" | "asc" = "desc"
+  ): Promise<HistoryResponse> => {
+    const params: Record<string, unknown> = { page, page_size: pageSize, sort };
+    if (mode) params.mode = mode;
+    if (risk) params.risk = risk;
+
+    const res = await api.get("/submissions/history", { params });
     return res.data;
   },
 
