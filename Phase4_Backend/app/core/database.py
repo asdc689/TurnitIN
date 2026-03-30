@@ -12,6 +12,11 @@ engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
     echo=not settings.is_production,   # logs SQL in development only
+    connect_args={
+        "ssl": False,
+        "server_settings": {},
+        "host": "127.0.0.1",  # force IPv4, avoid Windows loopback issue
+    }                         # disable SSL for local Docker PostgreSQL
 )
 
 # ── Session Factory ───────────────────────────────────────────────────────────

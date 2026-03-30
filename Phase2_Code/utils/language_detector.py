@@ -51,6 +51,6 @@ def detect_language(code: str) -> str:
 
     # Fallback: if no signals matched at all, default to python
     if scores[detected] == 0:
-        return "python"
+        return None
 
     return detected

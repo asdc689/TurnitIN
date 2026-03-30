@@ -35,6 +35,12 @@ export interface Scores {
   ast:       number | null;
 }
 
+export interface MatchedBlock {
+  score:         number;
+  file_a_region: [number, number];
+  file_b_region: [number, number];
+}
+
 export interface Report {
   id:                 number;
   language:           string | null;
@@ -44,6 +50,7 @@ export interface Report {
   processing_time_ms: number | null;
   algorithm_version:  string | null;
   created_at:         string;
+  matched_blocks:     MatchedBlock[] | null;
 }
 
 export interface SubmissionListItem {
@@ -81,6 +88,31 @@ export interface HistoryResponse {
   page:        number;
   page_size:   number;
   submissions: SubmissionListItem[];
+}
+
+export interface StatsResponse {
+  total_scans:        number;
+  average_similarity: number;
+  high_risk_count:    number;
+  most_used_mode:     string;
+}
+
+export interface TimelinePoint {
+  id:         number;
+  date:       string;
+  similarity: number;
+  mode:       string;
+  risk:       string;
+}
+
+export interface HistoryGraphResponse {
+  timeline:          TimelinePoint[];
+  risk_distribution: { LOW: number; MEDIUM: number; HIGH: number; };
+}
+
+export interface FileContents {
+  file1: { name: string; content: string; };
+  file2: { name: string; content: string; };
 }
 
 // ── API Error ─────────────────────────────────────────────────────────────────

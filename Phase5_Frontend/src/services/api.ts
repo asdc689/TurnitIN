@@ -5,6 +5,9 @@ import type {
   UploadResponse,
   SubmissionDetail,
   HistoryResponse,
+  FileContents,
+  StatsResponse,
+  HistoryGraphResponse,
 } from "../types"
 
 // ── Base Config ───────────────────────────────────────────────────────────────
@@ -135,6 +138,23 @@ export const submissionsApi = {
   // Fetches the final Jaccard/AST similarity scores
   getReport: async (id: number): Promise<SubmissionDetail> => {
     const res = await api.get(`/submissions/${id}/report`);
+    return res.data;
+  },
+
+  // Fetches the uploaded files
+  getFiles: async (id: number): Promise<FileContents> => {
+    const res = await api.get(`/submissions/${id}/files`);
+    return res.data;
+  },
+
+  // Fetches the status of the uploaded files
+  getStats: async (): Promise<StatsResponse> => {
+    const res = await api.get("/submissions/stats");
+    return res.data;
+  },
+
+  getHistoryGraph: async (): Promise<HistoryGraphResponse> => {
+    const res = await api.get("/submissions/history-graph");
     return res.data;
   },
 

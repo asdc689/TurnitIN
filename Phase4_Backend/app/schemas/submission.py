@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 from typing import Optional
 from datetime import datetime
 from typing import Optional
@@ -28,6 +28,14 @@ class ReportSchema(BaseModel):
     processing_time_ms: Optional[int]
     algorithm_version:  Optional[str]
     created_at:         datetime
+    matched_blocks: Optional[list] = None
+
+    @field_validator('matched_blocks', mode='before')
+    @classmethod
+    def coerce_matched_blocks(cls, v):
+        if isinstance(v, dict):
+            return [v] if v else None
+        return v
 
     model_config = {"from_attributes": True}
 
@@ -45,6 +53,7 @@ class ReportSchema(BaseModel):
                 "processing_time_ms": data.processing_time_ms,
                 "algorithm_version": data.algorithm_version,
                 "created_at": data.created_at,
+                "matched_blocks": data.matched_blocks,
                 "scores": {
                     "jaccard": data.jaccard_score,
                     "cosine": data.cosine_score,
@@ -114,3 +123,12 @@ class HistoryResponse(BaseModel):
     page:        int
     page_size:   int
     submissions: list[SubmissionListItem]
+
+
+# ── Stats Response ────────────────────────────────────────────────────────────
+
+class StatsResponse(BaseModel):
+    total_scans:        int
+    average_similarity: float
+    high_risk_count:    int
+    most_used_mode:     str

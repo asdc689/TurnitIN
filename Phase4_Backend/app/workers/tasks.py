@@ -54,6 +54,8 @@ def run_plagiarism_analysis(
     mode:           str,
     lang1_override: str = None,
     lang2_override: str = None,
+    ext1:           str = None,
+    ext2:           str = None,
 ):
     """
     Celery task: downloads files from storage, runs the plagiarism engine,
@@ -99,6 +101,8 @@ def run_plagiarism_analysis(
             mode           = mode,
             lang1_override = lang1_override,
             lang2_override = lang2_override,
+            ext1           = ext1,
+            ext2           = ext2,
         )
 
         # ── 5. Calculate processing time ──────────────────────────────────────
@@ -116,6 +120,7 @@ def run_plagiarism_analysis(
             ast_score          = scores.get("ast"),
             final_similarity   = result["final_similarity"],
             risk_level         = result["risk_level"],
+            matched_blocks     = result.get("matched_blocks"),
             processing_time_ms = processing_ms,
             algorithm_version  = "1.0.0",
         )

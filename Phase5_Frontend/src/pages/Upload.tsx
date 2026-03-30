@@ -134,7 +134,7 @@ export default function UploadPage() {
   const [error, setError]               = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<Step | null>(null);
 
-  const accept = mode === "text" ? ".txt,.pdf,.docx" : ".py,.java,.cpp,.c,.js,.ts";
+  const accept = mode === "text" ? ".txt,.pdf,.docx" : ".py,.java,.cpp,.js";
 
   const handleModeChange = (newMode: "text" | "code") => {
     setMode(newMode);
@@ -287,7 +287,7 @@ export default function UploadPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                   Upload Files
                   <span className="text-slate-400 dark:text-slate-500 font-normal ml-1">
-                    ({mode === "text" ? ".txt, .pdf, .docx" : ".py, .java, .cpp, .c, .js, .ts"})
+                    ({mode === "text" ? ".txt, .pdf, .docx" : ".py, .java, .cpp, .js"})
                   </span>
                 </label>
                 <div className="space-y-3">

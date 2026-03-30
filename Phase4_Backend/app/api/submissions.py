@@ -111,6 +111,8 @@ async def upload_submission(
         mode           = mode,
         lang1_override = lang_override,
         lang2_override = lang_override,
+        ext1           = ext1,
+        ext2           = ext2,
     )
 
     # Store Celery task ID for tracking
@@ -191,6 +193,62 @@ async def get_submission_report(
     return SubmissionDetailResponse.model_validate(submission)
 
 
+# ── Get File Contents ─────────────────────────────────────────────────────────
+@router.get("/{submission_id}/files")
+async def get_submission_files(
+    submission_id: int,
+    db:            AsyncSession = Depends(get_db),
+    current_user:  User         = Depends(get_current_verified_user),
+):
+    """
+    Returns the raw text content of both uploaded files.
+    Used by the frontend for side-by-side code comparison view.
+    """
+    result = await db.execute(
+        select(Submission)
+        .where(Submission.id == submission_id)
+        .where(Submission.user_id == current_user.id)
+    )
+    submission = result.scalar_one_or_none()
+
+    if not submission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Submission not found"
+        )
+
+    from app.services.file_service import download_file_from_storage, extract_text
+    import os
+
+    try:
+        file1_bytes = download_file_from_storage(submission.file1_path)
+        file2_bytes = download_file_from_storage(submission.file2_path)
+
+        ext1 = os.path.splitext(submission.file1_name)[1].lower()
+        ext2 = os.path.splitext(submission.file2_name)[1].lower()
+
+        content1 = extract_text(file1_bytes, ext1)
+        content2 = extract_text(file2_bytes, ext2)
+
+    except Exception as e:
+        logger.error("Failed to fetch file contents for submission %d: %s", submission_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not retrieve file contents from storage."
+        )
+
+    return {
+        "file1": {
+            "name":    submission.file1_name,
+            "content": content1,
+        },
+        "file2": {
+            "name":    submission.file2_name,
+            "content": content2,
+        }
+    }
+
+
 # ── History ───────────────────────────────────────────────────────────────────
 @router.get("/history", response_model=HistoryResponse)
 async def get_submission_history(
@@ -262,6 +320,120 @@ async def get_submission_history(
         page_size   = page_size,
         submissions = items,
     )
+
+
+# ── Stats ─────────────────────────────────────────────────────────────────────
+@router.get("/stats")
+async def get_submission_stats(
+    db:           AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_verified_user),
+):
+    """
+    Returns aggregated stats for the current user's submissions.
+    Used by the Dashboard stats cards.
+    """
+    from sqlalchemy import func, case
+    from app.models.report import RiskLevel
+
+    # Total scans
+    total_result = await db.execute(
+        select(func.count(Submission.id))
+        .where(Submission.user_id == current_user.id)
+    )
+    total_scans = total_result.scalar_one()
+
+    # Average similarity + high risk count
+    report_result = await db.execute(
+        select(
+            func.avg(Report.final_similarity),
+            func.count(
+                case((Report.risk_level == RiskLevel.HIGH, 1))
+            )
+        )
+        .join(Submission, Submission.id == Report.submission_id)
+        .where(Submission.user_id == current_user.id)
+    )
+    row = report_result.one()
+    average_similarity = round(float(row[0]), 4) if row[0] is not None else 0.0
+    high_risk_count    = row[1] or 0
+
+    # Most used mode
+    mode_result = await db.execute(
+        select(Submission.mode, func.count(Submission.id).label("count"))
+        .where(Submission.user_id == current_user.id)
+        .group_by(Submission.mode)
+        .order_by(desc("count"))
+        .limit(1)
+    )
+    mode_row       = mode_result.first()
+    most_used_mode = mode_row[0].value if mode_row else "—"
+
+    return {
+        "total_scans":        total_scans,
+        "average_similarity": average_similarity,
+        "high_risk_count":    high_risk_count,
+        "most_used_mode":     most_used_mode,
+    }
+
+
+# ── History Graph ─────────────────────────────────────────────────────────────
+@router.get("/history-graph")
+async def get_history_graph(
+    db:           AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_verified_user),
+):
+    """
+    Returns data for the Dashboard similarity history graph.
+    - Line chart: similarity score per submission over time
+    - Pie/bar chart: risk level distribution
+    """
+    from app.models.report import RiskLevel
+
+    # Line chart data — last 20 completed submissions ordered by date
+    line_result = await db.execute(
+        select(
+            Submission.id,
+            Submission.created_at,
+            Submission.mode,
+            Report.final_similarity,
+            Report.risk_level,
+        )
+        .join(Report, Report.submission_id == Submission.id)
+        .where(Submission.user_id == current_user.id)
+        .where(Submission.status == SubmissionStatus.COMPLETED)
+        .order_by(Submission.created_at.asc())
+        .limit(20)
+    )
+    rows = line_result.all()
+
+    timeline = [
+        {
+            "id":         row.id,
+            "date":       row.created_at.strftime("%b %d"),
+            "similarity": round(row.final_similarity * 100, 1),
+            "mode":       row.mode.value,
+            "risk":       row.risk_level.value,
+        }
+        for row in rows
+    ]
+
+    # Risk distribution
+    risk_result = await db.execute(
+        select(Report.risk_level, func.count(Report.id).label("count"))
+        .join(Submission, Submission.id == Report.submission_id)
+        .where(Submission.user_id == current_user.id)
+        .group_by(Report.risk_level)
+    )
+    risk_rows = risk_result.all()
+
+    risk_distribution = {"LOW": 0, "MEDIUM": 0, "HIGH": 0}
+    for row in risk_rows:
+        risk_distribution[row.risk_level.value] = row.count
+
+    return {
+        "timeline":          timeline,
+        "risk_distribution": risk_distribution,
+    }
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────

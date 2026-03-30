@@ -5,7 +5,6 @@ import enum
 
 from app.core.database import Base
 
-
 class RiskLevel(str, enum.Enum):
     LOW    = "LOW"
     MEDIUM = "MEDIUM"
@@ -27,6 +26,7 @@ class Report(Base):
     lcs_score       = Column(Float, nullable=True)     # both modes
     winnowing_score = Column(Float, nullable=True)     # code mode only
     ast_score       = Column(Float, nullable=True)     # code mode, same-language only
+    matched_blocks  = Column(JSON, nullable=True)
 
     # Final aggregated score and risk
     final_similarity = Column(Float, nullable=False)
